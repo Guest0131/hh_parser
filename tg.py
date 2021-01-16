@@ -63,7 +63,7 @@ def error_info(message):
 
 @bot.message_handler(commands=['getdump'])
 def get_dump(message):
-    if !user_is_admin(message):
+    if not user_is_admin(message):
         return
 
     returned_output = subprocess.check_output('C:\\xampp\\mysql\\bin\\mysqldump -h localhost -u user -p1234 course ')
@@ -78,7 +78,7 @@ def get_dump(message):
 
 @bot.message_handler(commands=['execute'])
 def execute(message):
-    if !user_is_admin(message):
+    if not user_is_admin(message):
         return
 
     bot.send_message(message.chat.id, 'Запуск параллельного парсинга hh стрницу\nНужна ссылка для парсинга из страницы поиска')
@@ -86,17 +86,19 @@ def execute(message):
     @bot.message_handler(content_types=['text'])
     def tmp(message):
         print(message.text)
-        print('r\"' + message.text + '\"')
+
         subprocess.Popen(
             ['python', os.path.realpath(__file__).replace('<input>', 'parser.py'), 
-            'r\"' + message.text + '\"'], 
+                '-a', 'r\"' + message.text + '\"'], 
             close_fds=True)
+            
+        print('Start')
 
     bot.register_next_step_handler(message, tmp)
 
 @bot.message_handler(commands=['actives'])
 def actives_bd(message):
-    if !user_is_admin(message):
+    if not user_is_admin(message):
         return
 
     file = json.loads(open(config['PATH']['ip_file'], 'r').read())
@@ -107,7 +109,7 @@ def actives_bd(message):
 
 @bot.message_handler(commands=['add_bd'])
 def add_bd(message):
-    if !user_is_admin(message):
+    if not user_is_admin(message):
         return
 
     #Get data about db
@@ -138,8 +140,8 @@ def add_bd(message):
     
 
 def user_is_admin(message):
-    if message.chat.id not in admins_chat_id_arr:
-        bot.send_message(message.chat_id, "Ты не админ, тебе не зачем знать что делает эта команда!")
+    if str(message.from_user.id) not in admins_chat_id_arr:
+        bot.send_message(message.chat.id, "Ты не админ, тебе не зачем знать что делает эта команда!")
         return False
     return True
 

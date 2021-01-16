@@ -177,7 +177,10 @@ if __name__ == '__main__':
     attrs = {}
     for param in sys.argv:
         if param[0] == '-':
-            attrs[param] = sys.argv[sys.argv.index(param) + 1]
+            try:
+                attrs[param] = sys.argv[sys.argv.index(param) + 1]
+            except:
+                attrs[param] = None
 
     #Parse current page
     if '-c' in attrs.keys() or '--current' in attrs.keys():
@@ -223,7 +226,7 @@ if __name__ == '__main__':
             password=config['DB']['password'], 
             db=config['DB']['db'])
         
-        for link in PageParser.find_links_from_url(attrs['-a'] if '-c' in attrs.keys() else attrs['--all']):
+        for link in PageParser.find_links_from_url(attrs['-a'] if '-a' in attrs.keys() else attrs['--all']):
             test = PageParser(link)
     
         #Close driver
