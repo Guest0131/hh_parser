@@ -22,7 +22,6 @@ class PageParser:
         self.__parse()
         self.__load_to_db()
 
-        pprint(self.data)
 
     def __parse(self):
         """Parse data from url """
@@ -47,6 +46,8 @@ class PageParser:
         self.data['practice'] = re.findall(r'(\d+.*)', self.data['practice'])[0]
         self.data['practice'] = re.sub(r'( лет| год| года)', '*12+', self.data['practice'])
         self.data['practice'] = re.sub(r'( месяц\w+)', '*1', self.data['practice'])
+        self.data['practice'] = re.sub(r' ', '', self.data['practice'])
+
         try:
             self.data['practice'] = str(eval(self.data['practice']))
         except:
@@ -68,6 +69,7 @@ class PageParser:
         except:
             education_block = "Empty"
 
+
         self.data['study'] = json.dumps(
                 {
                     item.find_element_by_xpath('//div[@data-qa="resume-block-education-name"]').text :
@@ -75,7 +77,7 @@ class PageParser:
                     for item in education_block[0].find_elements_by_xpath('//div[@data-qa="resume-block-education-item"]')
                 },
                 ensure_ascii=False
-            ) if education_block != "Empty" else 'Empty',
+            ) if education_block != "Empty" else 'Empty'
 
         #Parse about block
         try :
@@ -89,8 +91,9 @@ class PageParser:
         cursor = con.cursor()
         cursor.execute("""CREATE TABLE IF NOT EXISTS resumes (
             id TEXT,
-            link TEXT, 
-            gender TEXT, 
+            url TEXT, 
+            gender TEXT,
+            age TEXT, 
             prof TEXT, 
             salary TEXT, 
             practice TEXT, 
@@ -107,8 +110,8 @@ class PageParser:
         if len(req) != 0:
             cursor.execute("""
             UPDATE resumes
-            SET link = %s, gender = %s, prof = %s, salary = %s, practice = %s, town = %s, old_works = %s, study = %s, about = %s
-            WHERE id = %s""", list(self.data.values())[1:] + [list(self.data.values())[0]])
+            SET """ + ', '.join([k + '=' + json.dumps(self.data[k]) for k in self.data]) +
+            """ WHERE id = %s""", [self.data['id']])
 
             #Debug monitoring (fitcha)
             print('Mb yeah! +-1!!!')
@@ -116,9 +119,8 @@ class PageParser:
         #If user not found in db, insert new user in db
         else:
             cursor.execute(
-                """INSERT INTO resumes
-                (id, link, gender, prof, practice, town, old_works, study, salary, about) 
-                VALUES(%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)""",
+                "INSERT INTO resumes (" + ', '.join(list(self.data.keys())) + 
+                ") VALUES(" + ('%s, ' * len(self.data.values()))[:-2] + ')',
                 list(self.data.values()))
 
             #Debug monitoring (fitcha)
