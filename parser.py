@@ -3,8 +3,6 @@ from selenium import webdriver
 from urllib.parse import urlsplit, parse_qs
 from pprint import pprint
 
-
-
 class PageParser:
     def __init__(self, url):
         """Init
@@ -38,21 +36,27 @@ class PageParser:
             self.data['salary'] = driver.find_element_by_xpath('//span[@data-qa="resume-block-salary"]').text
             self.data['salary'] = re.sub(r'[^\d\w \.]', '', self.data['salary'])
         except:
-            self.data['salary'] = 'Empty'
+            self.data['salary'] = None
         
-        self.data['practice'] = driver.find_element_by_xpath('//span[@class="resume-block__title-text resume-block__title-text_sub"]').text
 
-        #Practice time formatting (year*12+months)
-        self.data['practice'] = re.findall(r'(\d+.*)', self.data['practice'])[0]
-        self.data['practice'] = re.sub(r'( лет| год| года)', '*12+', self.data['practice'])
-        self.data['practice'] = re.sub(r'( месяц\w+)', '*1', self.data['practice'])
-        self.data['practice'] = re.sub(r' ', '', self.data['practice'])
-
+        #Parse pracice time(count month)
         try:
-            self.data['practice'] = str(eval(self.data['practice']))
+            self.data['practice'] = driver.find_element_by_xpath('//span[@class="resume-block__title-text resume-block__title-text_sub"]').text
+
+            #Practice time formatting (year*12+months)
+            self.data['practice'] = re.findall(r'(\d+.*)', self.data['practice'])[0]
+            self.data['practice'] = re.sub(r'( лет| год| года)', '*12+', self.data['practice'])
+            self.data['practice'] = re.sub(r'( месяц\w+)', '*1', self.data['practice'])
+            self.data['practice'] = re.sub(r' ', '', self.data['practice'])
+
+            try:
+                self.data['practice'] = str(eval(self.data['practice']))
+            except:
+                self.data['practice'] = re.sub(r'\w', '', self.data['practice']) + '0'
+                self.data['practice'] = str(eval(self.data['practice']))
         except:
-            self.data['practice'] = re.sub(r'\w', '', self.data['practice']) + '0'
-            self.data['practice'] = str(eval(self.data['practice']))
+            self.data['practice'] = None
+        
         
         #Parse town and old works
         self.data['town'] = driver.find_element_by_xpath('//span[@data-qa="resume-personal-address"]').text
@@ -65,9 +69,9 @@ class PageParser:
         
         #Study organizations and spec
         try:
-            education_block = self.__driver__.find_elements_by_xpath('//div[@data-qa="resume-block-education"]')
+            education_block = driver.find_elements_by_xpath('//div[@data-qa="resume-block-education"]')
         except:
-            education_block = "Empty"
+            education_block = None
 
 
         self.data['study'] = json.dumps(
@@ -77,13 +81,16 @@ class PageParser:
                     for item in education_block[0].find_elements_by_xpath('//div[@data-qa="resume-block-education-item"]')
                 },
                 ensure_ascii=False
-            ) if education_block != "Empty" else 'Empty'
+            ) if education_block != None else None
 
         #Parse about block
         try :
-            self.data['about'] = self.__driver__.find_element_by_xpath('//div[@data-qa="resume-block-skills-content"]/span').text
+            pprint(driver.find_element_by_xpath('//div[@data-qa="resume-block-skills-content"]/span').text)
+            self.data['about'] = driver.find_element_by_xpath('//div[@data-qa="resume-block-skills-content"]/span').text
         except :
-            self.data['about'] = 'Empty'
+            self.data['about'] = None
+
+        pprint(self.data)
     
     def __load_to_db(self):
         """Load data to db"""
@@ -189,6 +196,11 @@ if __name__ == '__main__':
         #Load config file
         config = configparser.ConfigParser()
         config.read('settings.ini')
+        
+        #Update config file
+        config['PARSE']['status'] = str(int(config['PARSE']['status']) + 1)
+        with open('settings.ini', "w") as config_file:
+            config.write(config_file)
 
         #Create driver and connection
         driver = webdriver.Chrome(executable_path=config['PATH']['chromedriver'])
@@ -203,6 +215,11 @@ if __name__ == '__main__':
 
         #Close driver
         driver.close()
+        
+        #Update config file
+        config['PARSE']['status'] = str(int(config['PARSE']['status']) - 1)
+        with open('settings.ini', "w") as config_file:
+            config.write(config_file)
 
     #Helper
     elif ('-h' in attrs.keys() or '--help' in attrs.keys()) or len(attrs) == 0:
@@ -220,6 +237,11 @@ if __name__ == '__main__':
         config = configparser.ConfigParser()
         config.read('settings.ini')
 
+        #Update config file
+        config['PARSE']['status'] = str(int(config['PARSE']['status']) + 1)
+        with open('settings.ini', "w") as config_file:
+            config.write(config_file)
+
         #Create driver and connection
         driver = webdriver.Chrome(executable_path=config['PATH']['chromedriver'])
         con = pymysql.connect(
@@ -233,3 +255,9 @@ if __name__ == '__main__':
     
         #Close driver
         driver.close()
+
+        #Update config file
+        config['PARSE']['status'] = str(int(config['PARSE']['status']) - 1)
+        with open('settings.ini', "w") as config_file:
+            config.write(config_file)
+        

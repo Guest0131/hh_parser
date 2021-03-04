@@ -1,4 +1,5 @@
-import telebot, pymysql, datetime, json, requests, subprocess, os, configparser
+import telebot, pymysql, datetime, json, requests, subprocess, os, configparser, re
+from api.api import ApiParser
 
 #Load config file
 config = configparser.ConfigParser()
@@ -13,12 +14,12 @@ admins_chat_id_arr = [config['TG']['admin_chat_id']]
 #Keyboard load
 keyboard1 = telebot.types.ReplyKeyboardMarkup(True, True)
 keyboard1.row('/info', '/help', '/errors')
-keyboard1.row('/execute')
+keyboard1.row('/execute', '/getdump')
 
 """Декоратор ответа на стартовое сообщение"""
 @bot.message_handler(commands=['start'])
 def start_message(message):
-    bot.send_message(message.chat.id,'Hello world, men!', reply_markup=keyboard1)
+    bot.send_message(message.chat.id,'Hello, men!', reply_markup=keyboard1)
 
 @bot.message_handler(commands=['info'])
 def cmd_info(message):
@@ -48,7 +49,8 @@ def cmd_help(message):
 
     ⚙️ /help - помощь
     ☎️ /info - актуальная информация о состоянии базы данных
-    🩸 /errors - показать имеющиеся ошибки и получить отчёт""")
+    🩸 /errors - показать имеющиеся ошибки и получить отчёт
+    📄 /getdump - получить дамп базы в .sql""")
 
 @bot.message_handler(commands=['errors'])
 def error_info(message):
@@ -76,25 +78,53 @@ def get_dump(message):
     bot.send_document(message.chat.id, file)
     file.close()
 
+
 @bot.message_handler(commands=['execute'])
-def execute(message):
+def execute_answer(message):
     if not user_is_admin(message):
         return
 
-    bot.send_message(message.chat.id, 'Запуск параллельного парсинга hh стрницу\nНужна ссылка для парсинга из страницы поиска')
+    params = {
+        'mode' : '',
+        'url'  : ''
+    }
 
-    @bot.message_handler(content_types=['text'])
-    def tmp(message):
-        print(message.text)
+    bot.send_message(message.chat.id, 'Запуск парсинга hh стрницу\nНужна ссылка для парсинга из страницы поиска\nВыберите режим:')
+    bot.send_message(message.chat.id, 'all или current')
 
-        subprocess.Popen(
-            ['python', os.path.realpath(__file__).replace('<input>', 'parser.py'), 
-                '-a', 'r\"' + message.text + '\"'], 
-            close_fds=True)
-            
-        print('Start')
+    def execute_mode(message):
+        params['mode'] = message.text
+        bot.send_message(message.chat.id, 'Введите url')
 
-    bot.register_next_step_handler(message, tmp)
+        def execute_start(messsage):
+            params['url'] = message.text
+
+            table_active = []
+            file = json.loads(open(config['PATH']['ip_file'], 'r').read())
+            for ip, token in file.items():
+                try:
+                    table_active.append({
+                        'ip' : ip,
+                        'token' : token,
+                        'count' : int(ApiParser(ip, token).parse_status())
+                    })
+                except:
+                    pass
+
+            table_active = sorted(table_active, key=lambda x: x['count'])
+            current_parser = ApiParser(
+                table_active[0]['ip'], 
+                table_active[0]['token']
+                )
+
+            current_parser.execute_parse(params['url'], params['mode'])
+
+
+        bot.register_next_step_handler(message, execute_start)
+
+    bot.register_next_step_handler(message,execute_mode)
+
+
 
 @bot.message_handler(commands=['actives'])
 def actives_bd(message):
@@ -102,42 +132,53 @@ def actives_bd(message):
         return
 
     file = json.loads(open(config['PATH']['ip_file'], 'r').read())
-    bot.send_message(
-        message.chat.id, 
-        '\n'.join([':'.join(data) for data in file])
-    )
 
-@bot.message_handler(commands=['add_bd'])
-def add_bd(message):
+    for ip, token in file.items():
+        try:
+            count = int(ApiParser(ip, token).parse_status())
+            bot.send_message(
+                message.chat.id, 
+            ('🟢 ' if count > 0 else '🔴 ') + ip + ' : ' + str(count)
+            )
+        except:
+            bot.send_message(message.chat.id, 'Проблемы на ' + ip)
+
+def check_connection_data(message):
+    answer = re.findall(r'([^;]+);([^;]+)', message.text)[0]
+    
+    try:
+        fields = ['host', 'token']
+        for field in fields:
+            data[field] = answer[fields.index(field)]
+
+        res = ApiParser(data['host'], data['token'])
+        bot.send_message(message.chat.id, "API соединение успешно установлено")
+
+        ip_dict = json.loads(open(config['PATH']['ip_file'], 'r').read())
+        ip_dict[data['host']] = data['token']
+
+        with open(config['PATH']['ip_file'], 'w') as outfile:
+            json.dump(ip_dict, outfile)
+    except:
+        print("fack")
+
+
+@bot.message_handler(commands=['add_api'])
+def add_api(message):
     if not user_is_admin(message):
         return
 
     #Get data about db
+    global data
     data = {}
-    for field in ['host', 'user', 'password', 'db_name']:
-        bot.send_message(message.chat.id, f'Введите {field} БД:')
-        @bot.message_handler(content_types=['text'])
-        def get_data(message):
-            data[field] = message.text
-
-        bot.register_next_step_handler(get_data)
-
-    #Check connection
-    try:
-        check_con = pymysql.connect(
-            host=data['host'], 
-            user=data['user'], 
-            password=data['password'], 
-            db=data['db_name']
-        )
-
-        #Write change to file
-        open(config['PATH']['ip_file'], 'w').write(json.dumps(
-            json.loads(open(config['PATH']['ip_file'], 'r').read()) + [data]
-        ))
-    except:
-        bot.send_message(message.chat.id, "Не удалось подключиться к БД")
+    bot.send_message(message.chat.id, f'Введите данные в формате `host;token`')
+    msg = bot.send_message(message.chat.id, f'Example: https://192.168.35.200/api.php;MY_SUPER_PUPER_TOKEN')
+    bot.register_next_step_handler(msg, check_connection_data)
+   
     
+
+
+
 
 def user_is_admin(message):
     if str(message.from_user.id) not in admins_chat_id_arr:
