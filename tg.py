@@ -81,6 +81,11 @@ def get_dump(message):
 
 @bot.message_handler(commands=['execute'])
 def execute_answer(message):
+    """Execute parse
+
+    Args:
+        message ([type]): [description]
+    """
     if not user_is_admin(message):
         return
 
@@ -96,7 +101,7 @@ def execute_answer(message):
         params['mode'] = message.text
         bot.send_message(message.chat.id, 'Введите url')
 
-        def execute_start(messsage):
+        def execute_start(message):
             params['url'] = message.text
 
             table_active = []
@@ -128,6 +133,11 @@ def execute_answer(message):
 
 @bot.message_handler(commands=['actives'])
 def actives_bd(message):
+    """Get actves status API servers
+
+    Args:
+        message : telebot message object
+    """
     if not user_is_admin(message):
         return
 
@@ -144,8 +154,14 @@ def actives_bd(message):
             bot.send_message(message.chat.id, 'Проблемы на ' + ip)
 
 def check_connection_data(message):
+    """Check new API server
+
+    Args:
+        message ([type]): telebot message object
+    """
     answer = re.findall(r'([^;]+);([^;]+)', message.text)[0]
     
+    #Try connect
     try:
         fields = ['host', 'token']
         for field in fields:
@@ -160,27 +176,38 @@ def check_connection_data(message):
         with open(config['PATH']['ip_file'], 'w') as outfile:
             json.dump(ip_dict, outfile)
     except:
-        print("fack")
+        bot.send_message(message.chat.id, "Не удалось подключиться к серверу")
 
 
 @bot.message_handler(commands=['add_api'])
 def add_api(message):
+    """Add new API server
+
+    Args:
+        message : telebot message object
+    """
     if not user_is_admin(message):
         return
 
     #Get data about db
     global data
     data = {}
+
     bot.send_message(message.chat.id, f'Введите данные в формате `host;token`')
     msg = bot.send_message(message.chat.id, f'Example: https://192.168.35.200/api.php;MY_SUPER_PUPER_TOKEN')
+
     bot.register_next_step_handler(msg, check_connection_data)
    
     
-
-
-
-
 def user_is_admin(message):
+    """Check user. Valid admin id or not.
+
+    Args:
+        message : telebot messages
+
+    Returns:
+        bool
+    """
     if str(message.from_user.id) not in admins_chat_id_arr:
         bot.send_message(message.chat.id, "Ты не админ, тебе не зачем знать что делает эта команда!")
         return False

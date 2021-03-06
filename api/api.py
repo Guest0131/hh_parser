@@ -51,6 +51,12 @@ class ApiParser:
             return False
 
         try:
+            print(url)
+            print(self.__ip + '?method={method}&url={url}&mode={mode}&token={token}'.format(
+                    method='execute',
+                    url=b64url,
+                    mode=mode,
+                    token=self.__token))
             requests.get(
                 self.__ip + '?method={method}&url={url}&mode={mode}&token={token}'.format(
                     method='execute',

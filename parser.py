@@ -45,8 +45,8 @@ class PageParser:
 
             #Practice time formatting (year*12+months)
             self.data['practice'] = re.findall(r'(\d+.*)', self.data['practice'])[0]
-            self.data['practice'] = re.sub(r'( лет| год| года)', '*12+', self.data['practice'])
-            self.data['practice'] = re.sub(r'( месяц\w+)', '*1', self.data['practice'])
+            self.data['practice'] = re.sub(r' (лет|года|год)', '*12+', self.data['practice'])
+            self.data['practice'] = re.sub(r'( месяц[^ ]*)', '*1', self.data['practice'])
             self.data['practice'] = re.sub(r' ', '', self.data['practice'])
 
             try:
