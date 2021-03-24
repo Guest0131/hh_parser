@@ -68,7 +68,12 @@ def get_dump(message):
     if not user_is_admin(message):
         return
 
-    returned_output = subprocess.check_output('C:\\xampp\\mysql\\bin\\mysqldump -h localhost -u user -p1234 course ')
+    returned_output = subprocess.check_output(config['DB']['mysqldump_path'] + " -h {host} -u {user} -p{password} {db}".format(
+        host=config['DB']['host'],
+        user=config['DB']['login'],
+        password=config['DB']['password'],
+        db=config['DB']['db']
+    ))
     fileName = 'dumps\\dump_{}.sql'.format(datetime.datetime.now().strftime("%d-%m-%Y_%H-%M"))
     file = open(fileName, 'w+', encoding='utf-8')
     file.write(returned_output.decode("utf-8"))
